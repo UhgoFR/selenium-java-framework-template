@@ -1,0 +1,5 @@
+{
+  "userId": 1,
+  "title": "Test Post Title",
+  "body": "This is a test post body created for API testing purposes. It contains enough text to simulate a realistic post content."
+}

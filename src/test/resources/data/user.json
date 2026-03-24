@@ -1,0 +1,22 @@
+{
+  "name": "John Doe",
+  "email": "john.doe@example.com",
+  "username": "johndoe",
+  "phone": "1-770-736-8031",
+  "website": "johndoe.org",
+  "address": {
+    "street": "123 Main St",
+    "suite": "Apt 4B",
+    "city": "New York",
+    "zipcode": "10001",
+    "geo": {
+      "lat": "40.7128",
+      "lng": "-74.0060"
+    }
+  },
+  "company": {
+    "name": "Doe Enterprises",
+    "catchPhrase": "Innovating solutions for tomorrow",
+    "bs": "strategic innovation consulting"
+  }
+}
