@@ -35,6 +35,9 @@ buildNumber.properties
 .mvn/timing.properties
 .mvn/wrapper/maven-wrapper.jar
 
+# Allure
+.allure/
+
 # Gradle
 .gradle
 build/
