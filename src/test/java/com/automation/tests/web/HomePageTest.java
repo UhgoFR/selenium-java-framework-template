@@ -1,4 +1,4 @@
-package com.automation.tests;
+package com.automation.tests.web;
 
 import com.automation.base.BaseTest;
 import com.automation.pages.HomePage;
