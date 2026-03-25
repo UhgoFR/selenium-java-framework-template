@@ -68,15 +68,29 @@ public class BaseAPITest {
     }
 
     /**
+     * Permite a las clases hijas sobrescribir la BaseURL.
+     * Por defecto usa la configuración global.
+     * 
+     * @return BaseURL específica para la clase de prueba
+     */
+    protected String getBaseUrl() {
+        return ConfigManager.getApiBaseUrl();
+    }
+
+    /**
      * Inicializa las especificaciones de Request y Response para el thread actual.
      * Este método es thread-safe y crea instancias separadas para cada thread.
      */
     private void initializeSpecifications() {
         System.out.println("Initializing specifications for thread: " + Thread.currentThread().getId());
         
+        // Usar la BaseURL específica de la clase
+        String baseUrl = getBaseUrl();
+        System.out.println("Using BaseURL: " + baseUrl);
+        
         // Crear RequestSpecification específica para este thread
         RequestSpecification threadRequestSpec = new RequestSpecBuilder()
-                .setBaseUri(ConfigManager.getApiBaseUrl())
+                .setBaseUri(baseUrl)
                 .setAccept("application/json")
                 .setContentType("application/json")
                 .addFilter(RequestLoggingFilter.logRequestTo(System.out))
