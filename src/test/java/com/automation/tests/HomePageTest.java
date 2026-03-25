@@ -3,13 +3,20 @@ package com.automation.tests;
 import com.automation.base.BaseTest;
 import com.automation.pages.HomePage;
 import org.testng.Assert;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class HomePageTest extends BaseTest {
+    private HomePage homePage;
 
-    @Test(description = "Verificar que la página de inicio carga correctamente")
+    @BeforeMethod
+    public void setUpHomePage() {
+        homePage = new HomePage(getDriver());
+    }
+
+    @Test(description = "Verificar que la página de inicio carga correctamente", groups = "WebTest")
     public void testHomePageLoad() {
-        HomePage homePage = new HomePage(getDriver());
+        homePage = new HomePage(getDriver());
         homePage.navigateToHomePage();
         
         Assert.assertTrue(homePage.isMainTitleDisplayed(), 
@@ -21,9 +28,9 @@ public class HomePageTest extends BaseTest {
         System.out.println("Página de inicio cargada exitosamente");
     }
 
-    @Test(description = "Verificar funcionalidad de búsqueda")
+    @Test(description = "Verificar funcionalidad de búsqueda", groups = "WebTest")
     public void testSearchFunctionality() {
-        HomePage homePage = new HomePage(getDriver());
+        homePage = new HomePage(getDriver());
         homePage.navigateToHomePage();
         
         if (homePage.isSearchInputVisible()) {
@@ -38,18 +45,18 @@ public class HomePageTest extends BaseTest {
         }
     }
 
-    @Test(description = "Verificar navegación a About")
+    @Test(description = "Verificar navegación a About", groups = "WebTest")
     public void testNavigationToAbout() {
-        HomePage homePage = new HomePage(getDriver());
+        homePage = new HomePage(getDriver());
         homePage.navigateToHomePage();
         
-        homePage.clickAboutLink();
-        
-        homePage.pause(2000L); // Esperar a que cargue la página About
+        homePage.clickAboutLink(); // Esperar a que cargue la página About
         
         String currentUrl = homePage.getCurrentUrl();
-        Assert.assertTrue(currentUrl.contains("about") || currentUrl.contains("About"), 
+        Assert.assertTrue(currentUrl.contains("help") || currentUrl.contains("Help"), 
                          "No se navegó correctamente a la página About");
+        
+        homePage.pause(2000L); // Esperar a que cargue la página About
         
         System.out.println("Navegación a About verificada exitosamente");
     }

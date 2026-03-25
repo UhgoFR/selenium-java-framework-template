@@ -9,9 +9,14 @@ import io.restassured.filter.log.ResponseLoggingFilter;
 import io.restassured.specification.RequestSpecification;
 import io.restassured.specification.ResponseSpecification;
 import org.hamcrest.Matchers;
-import org.testng.annotations.BeforeSuite;
+import org.testng.annotations.*;
 
 public class BaseAPITest {
+    // Thread-safe para ejecución en paralelo
+    private static ThreadLocal<RequestSpecification> requestSpecThreadLocal = new ThreadLocal<>();
+    private static ThreadLocal<ResponseSpecification> responseSpecThreadLocal = new ThreadLocal<>();
+    
+    // Variables de instancia para compatibilidad
     protected RequestSpecification requestSpec;
     protected ResponseSpecification responseSpec;
 
@@ -36,54 +41,97 @@ public class BaseAPITest {
      *   <li><strong>Logging:</strong> Solicitudes y respuestas en consola</li>
      * </ul>
      */
-    @BeforeSuite
-    public void setUp() {
+    @BeforeSuite(alwaysRun = true)
+    public void setUpSuite() {
+        System.out.println("BaseAPITest @BeforeSuite - Configuring RestAssured for parallel execution");
+        // Configuración global básica
         RestAssured.baseURI = ConfigManager.getApiBaseUrl();
+        System.out.println("RestAssured.baseURI set to: " + RestAssured.baseURI);
+    }
+    
+    @BeforeClass(alwaysRun = true)
+    public void setUpClass() {
+        System.out.println("BaseAPITest @BeforeClass for thread: " + Thread.currentThread().getId());
+        initializeSpecifications();
+    }
+    
+    @BeforeMethod(alwaysRun = true)
+    public void setUpMethod() {
+        System.out.println("BaseAPITest @BeforeMethod for thread: " + Thread.currentThread().getId());
+        // Asegurar que las especificaciones estén configuradas para este thread
+        if (requestSpecThreadLocal.get() == null) {
+            initializeSpecifications();
+        }
+        // Actualizar variables de instancia para compatibilidad
+        requestSpec = requestSpecThreadLocal.get();
+        responseSpec = responseSpecThreadLocal.get();
+    }
 
-        requestSpec = new RequestSpecBuilder()
+    /**
+     * Inicializa las especificaciones de Request y Response para el thread actual.
+     * Este método es thread-safe y crea instancias separadas para cada thread.
+     */
+    private void initializeSpecifications() {
+        System.out.println("Initializing specifications for thread: " + Thread.currentThread().getId());
+        
+        // Crear RequestSpecification específica para este thread
+        RequestSpecification threadRequestSpec = new RequestSpecBuilder()
+                .setBaseUri(ConfigManager.getApiBaseUrl())
                 .setAccept("application/json")
                 .setContentType("application/json")
                 .addFilter(RequestLoggingFilter.logRequestTo(System.out))
                 .addFilter(ResponseLoggingFilter.logResponseTo(System.out))
                 .build();
-
-        responseSpec = new ResponseSpecBuilder()
+        
+        // Crear ResponseSpecification específica para este thread
+        ResponseSpecification threadResponseSpec = new ResponseSpecBuilder()
                 .expectResponseTime(Matchers.lessThan(30000L))
                 .build();
-
-        RestAssured.requestSpecification = requestSpec;
-        RestAssured.responseSpecification = responseSpec;
+        
+        // Almacenar en ThreadLocal
+        requestSpecThreadLocal.set(threadRequestSpec);
+        responseSpecThreadLocal.set(threadResponseSpec);
+        
+        // Actualizar variables de instancia
+        requestSpec = threadRequestSpec;
+        responseSpec = threadResponseSpec;
+        
+        System.out.println("Specifications initialized for thread: " + Thread.currentThread().getId());
     }
-
+    
     /**
-     * Proporciona acceso a la especificación de solicitud configurada.
+     * Limpia las especificaciones del thread actual después de cada test.
+     */
+    @AfterMethod(alwaysRun = true)
+    public void tearDownMethod() {
+        System.out.println("BaseAPITest @AfterMethod for thread: " + Thread.currentThread().getId());
+        // Limpiar ThreadLocals para evitar memory leaks
+        requestSpecThreadLocal.remove();
+        responseSpecThreadLocal.remove();
+    }
+    
+    /**
+     * Limpia las especificaciones después de cada clase.
+     */
+    @AfterClass(alwaysRun = true)
+    public void tearDownClass() {
+        System.out.println("BaseAPITest @AfterClass for thread: " + Thread.currentThread().getId());
+        requestSpecThreadLocal.remove();
+        responseSpecThreadLocal.remove();
+    }
+    
+    /**
+     * Proporciona acceso a la especificación de solicitud configurada para el thread actual.
      * 
-     * <p>Este método devuelve la RequestSpecification que contiene toda la configuración
-     * base para las solicitudes HTTP incluyendo:
-     * <ul>
-     *   <li>Headers predefinidos (Accept, Content-Type)</li>
-     *   <li>Filtros de logging para debugging</li>
-     *   <li>Configuración de base URI</li>
-     * </ul>
-     * 
-     * <p>Uso típico cuando se necesita personalizar una solicitud específica:
-     * <pre>
-     * RequestSpecification customSpec = getRequestSpecification()
-     *     .header("Authorization", "Bearer token")
-     *     .pathParam("userId", 123);
-     * 
-     * given()
-     *     .spec(customSpec)
-     *     .when()
-     *     .get("/users/{userId}")
-     *     .then()
-     *     .statusCode(200);
-     * </pre>
-     * 
-     * @return RequestSpecification configurada con headers y filtros base
+     * @return RequestSpecification thread-safe configurada con headers y filtros base
      */
     protected RequestSpecification getRequestSpecification() {
-        return requestSpec;
+        RequestSpecification spec = requestSpecThreadLocal.get();
+        if (spec == null) {
+            initializeSpecifications();
+            spec = requestSpecThreadLocal.get();
+        }
+        return spec;
     }
 
     /**

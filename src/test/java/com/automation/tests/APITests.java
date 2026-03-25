@@ -15,7 +15,7 @@ import static io.restassured.RestAssured.given;
 
 public class APITests extends BaseAPITest {
 
-    @Test(description = "Ejemplo de prueba GET básica")
+    @Test(description = "Ejemplo de prueba GET básica", groups = "ApiTest")
     public void basicGetTest() {
         Response response = given()
                 .when()
@@ -29,7 +29,7 @@ public class APITests extends BaseAPITest {
         System.out.println("Response: " + response.asString());
     }
 
-    @Test(description = "Prueba POST usando modelo User y archivo JSON")
+    @Test(description = "Prueba POST usando modelo User y archivo JSON", groups = "ApiTest")
     public void createUserTest() {
         // Cargar datos desde archivo JSON usando modelo User
         User user = DataLoader.loadJson("data/user.json", User.class);
@@ -52,7 +52,7 @@ public class APITests extends BaseAPITest {
         System.out.println("Response: " + response.asString());
     }
 
-    @Test(description = "Prueba POST usando archivo JSON como string")
+    @Test(description = "Prueba POST usando archivo JSON como string", groups = "ApiTest")
     public void createPostTest() {
         // Cargar JSON como string para casos donde se necesita el JSON crudo
         String postJson = DataLoader.loadJsonAsString("data/post.json");
@@ -72,7 +72,7 @@ public class APITests extends BaseAPITest {
         System.out.println("Response: " + response.asString());
     }
 
-    @Test(description = "Prueba POST usando modelo Post")
+    @Test(description = "Prueba POST usando modelo Post", groups = "ApiTest")
     public void createPostModelTest() {
         // Crear objeto Post usando Builder pattern
         Post post = Post.builder()
@@ -96,7 +96,7 @@ public class APITests extends BaseAPITest {
         System.out.println("Response: " + response.asString());
     }
 
-    @Test(description = "Prueba con validación de respuesta usando modelo User")
+    @Test(description = "Prueba con validación de respuesta usando modelo User", groups = "ApiTest")
     public void getUserAndValidateTest() {
         Response response = given()
                 .when()
@@ -116,7 +116,7 @@ public class APITests extends BaseAPITest {
         Assert.assertTrue(user.getEmail().contains("@"), "El email debería contener @");
     }
 
-    @Test(description = "Prueba con JSONPlaceholder API")
+    @Test(description = "Prueba con JSONPlaceholder API", groups = "ApiTest")
     public void jsonPlaceholderTest() {
         given()
                 .baseUri("https://jsonplaceholder.typicode.com")
@@ -129,7 +129,7 @@ public class APITests extends BaseAPITest {
         System.out.println("Prueba con JSONPlaceholder completada exitosamente");
     }
 
-    @Test(description = "Prueba PUT usando modelo User")
+    @Test(description = "Prueba PUT usando modelo User", groups = "ApiTest")
     public void updateUserTest() {
         // Crear usuario usando Builder pattern
         User user = User.builder()

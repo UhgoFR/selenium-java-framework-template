@@ -15,7 +15,7 @@ public class HomePage extends BasePage {
     @FindBy(css = "input[type='submit']")
     private WebElement searchButton;
 
-    @FindBy(linkText = "About")
+    @FindBy(linkText = "Learn more")
     private WebElement aboutLink;
 
     @FindBy(className = "navigation")

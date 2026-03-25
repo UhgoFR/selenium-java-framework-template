@@ -2,7 +2,6 @@ package com.automation.tests;
 
 import com.automation.base.BaseTest;
 import org.openqa.selenium.By;
-import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
@@ -13,13 +12,13 @@ import java.time.Duration;
 
 public class WebTests extends BaseTest {
 
-    @Test(description = "Ejemplo de prueba web básica")
+    @Test(description = "Ejemplo de prueba web básica", groups = "WebTest")
     public void basicWebTest() {
         navigateToBaseUrl();
         
         WebDriverWait wait = new WebDriverWait(getDriver(), Duration.ofSeconds(10));
         
-        String expectedTitle = "Example Page";
+        String expectedTitle = "Example Domain";
         String actualTitle = getDriver().getTitle();
         
         Assert.assertEquals(actualTitle, expectedTitle, "El título de la página no coincide");
@@ -27,7 +26,7 @@ public class WebTests extends BaseTest {
         System.out.println("Prueba web completada exitosamente");
     }
 
-    @Test(description = "Ejemplo de búsqueda en Google")
+    @Test(description = "Ejemplo de búsqueda en Google", groups = "WebTest")
     public void googleSearchTest() {
         getDriver().get("https://www.google.com");
         

@@ -10,8 +10,15 @@ import org.openqa.selenium.firefox.FirefoxOptions;
 import org.testng.ITestContext;
 import org.testng.annotations.*;
 
+import java.time.Duration;
+
 public class BaseTest {
-    protected WebDriver driver;
+    private static ThreadLocal<WebDriver> driver = new ThreadLocal<>();
+
+    public BaseTest() {
+        System.out.println("BaseTest constructor called for thread: " + Thread.currentThread().getId());
+        addShutdownHook();
+    }
 
     /**
      * Configura el entorno de drivers de Selenium WebDriver antes de ejecutar la suite de pruebas.
@@ -29,6 +36,15 @@ public class BaseTest {
     public void setUpSuite(ITestContext context) {
         WebDriverManager.chromedriver().setup();
         WebDriverManager.firefoxdriver().setup();
+    }
+
+    @BeforeClass
+    public void setUpClass() {
+        System.out.println("BaseTest @BeforeClass called for thread: " + Thread.currentThread().getId());
+        if (driver.get() == null) {
+            System.out.println("Driver is null in @BeforeClass, initializing...");
+            initializeDriver(ConfigManager.getBrowser(), ConfigManager.isHeadless());
+        }
     }
 
     /**
@@ -56,32 +72,12 @@ public class BaseTest {
     @BeforeMethod
     @Parameters({"browser", "headless"})
     public void setUp(@Optional("chrome") String browser, @Optional("false") boolean headless) {
+        System.out.println("BaseTest @BeforeMethod called - creating new driver instance for thread: " + Thread.currentThread().getId());
         String browserConfig = ConfigManager.getBrowser();
         String selectedBrowser = browser.isEmpty() ? browserConfig : browser;
         boolean isHeadless = headless || ConfigManager.isHeadless();
-
-        switch (selectedBrowser.toLowerCase()) {
-            case "chrome":
-                ChromeOptions chromeOptions = new ChromeOptions();
-                if (isHeadless) {
-                    chromeOptions.addArguments("--headless");
-                }
-                chromeOptions.addArguments("--no-sandbox", "--disable-dev-shm-usage");
-                driver = new ChromeDriver(chromeOptions);
-                break;
-            case "firefox":
-                FirefoxOptions firefoxOptions = new FirefoxOptions();
-                if (isHeadless) {
-                    firefoxOptions.addArguments("--headless");
-                }
-                driver = new FirefoxDriver(firefoxOptions);
-                break;
-            default:
-                throw new IllegalArgumentException("Browser no soportado: " + selectedBrowser);
-        }
-
-        driver.manage().window().maximize();
-        driver.manage().deleteAllCookies();
+        
+        initializeDriver(selectedBrowser, isHeadless);
     }
 
     /**
@@ -98,11 +94,177 @@ public class BaseTest {
      * <p>Realiza una verificación de nulidad antes de cerrar para evitar
      * excepciones en caso de que el driver no se haya inicializado correctamente.
      */
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     public void tearDown() {
-        if (driver != null) {
-            driver.quit();
+        closeDriver("@AfterMethod");
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void tearDownClass() {
+        closeDriver("@AfterClass");
+    }
+
+    @AfterSuite(alwaysRun = true)
+    public void tearDownSuite() {
+        killBrowserProcesses();
+    }
+
+    /**
+     * Inicializa el WebDriver con el navegador y opciones especificadas.
+     * 
+     * @param browser Navegador a utilizar ("chrome" o "firefox")
+     * @param headless Indica si ejecutar en modo sin interfaz gráfica
+     */
+    private void initializeDriver(String browser, boolean headless) {
+        WebDriver webDriver = createWebDriver(browser, headless);
+        configureDriver(webDriver);
+        driver.set(webDriver);
+        
+        String caller = Thread.currentThread().getStackTrace()[3].getMethodName();
+        System.out.println("Driver initialized in " + caller + " for thread " + 
+                         Thread.currentThread().getId() + ": " + webDriver);
+    }
+
+    /**
+     * Crea una instancia de WebDriver según el navegador y opciones especificadas.
+     * 
+     * @param browser Navegador a utilizar
+     * @param headless Indica si ejecutar en modo headless
+     * @return Instancia de WebDriver configurada
+     */
+    private WebDriver createWebDriver(String browser, boolean headless) {
+        switch (browser.toLowerCase()) {
+            case "chrome":
+                return createChromeDriver(headless);
+            case "firefox":
+                return createFirefoxDriver(headless);
+            default:
+                throw new IllegalArgumentException("Browser no soportado: " + browser);
         }
+    }
+
+    /**
+     * Crea una instancia de Chrome Driver con las opciones especificadas.
+     * 
+     * @param headless Indica si ejecutar en modo headless
+     * @return ChromeDriver configurado
+     */
+    private WebDriver createChromeDriver(boolean headless) {
+        ChromeOptions options = new ChromeOptions();
+        if (headless) {
+            options.addArguments("--headless");
+        }
+        options.addArguments("--no-sandbox", "--disable-dev-shm-usage");
+        return new ChromeDriver(options);
+    }
+
+    /**
+     * Crea una instancia de Firefox Driver con las opciones especificadas.
+     * 
+     * @param headless Indica si ejecutar en modo headless
+     * @return FirefoxDriver configurado
+     */
+    private WebDriver createFirefoxDriver(boolean headless) {
+        FirefoxOptions options = new FirefoxOptions();
+        if (headless) {
+            options.addArguments("--headless");
+        }
+        return new FirefoxDriver(options);
+    }
+
+    /**
+     * Configura las opciones básicas del WebDriver (maximizar ventana, limpiar cookies, timeouts).
+     * 
+     * @param webDriver WebDriver a configurar
+     */
+    private void configureDriver(WebDriver webDriver) {
+        webDriver.manage().window().maximize();
+        webDriver.manage().deleteAllCookies();
+        
+        // Configurar timeouts para mejor manejo de esperas
+        webDriver.manage().timeouts().implicitlyWait(Duration.ofSeconds(10));
+        webDriver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(30));
+        webDriver.manage().timeouts().scriptTimeout(Duration.ofSeconds(20));
+    }
+
+    /**
+     * Cierra el WebDriver actual y lo elimina del ThreadLocal.
+     * 
+     * @param context Contexto desde donde se llama el método (para logging)
+     */
+    private void closeDriver(String context) {
+        WebDriver currentDriver = driver.get();
+        if (currentDriver != null) {
+            try {
+                currentDriver.quit();
+                System.out.println("Driver closed and removed from thread: " + 
+                                 Thread.currentThread().getId() + " (" + context + ")");
+            } catch (Exception e) {
+                System.err.println("Error closing driver in " + context + ": " + e.getMessage());
+            } finally {
+                driver.remove();
+            }
+        }
+    }
+
+    /**
+     * Agrega un Shutdown Hook para garantizar cierre de browsers si la JVM termina abruptamente.
+     */
+    private void addShutdownHook() {
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            System.out.println("Shutdown Hook: Closing all WebDriver instances...");
+            closeDriver("Shutdown Hook");
+            killBrowserProcesses();
+        }));
+    }
+
+    /**
+     * Mata procesos de browsers y drivers residuales según el sistema operativo.
+     */
+    private void killBrowserProcesses() {
+        try {
+            String osName = System.getProperty("os.name").toLowerCase();
+            
+            if (osName.contains("mac")) {
+                killMacProcesses();
+            } else if (osName.contains("windows")) {
+                killWindowsProcesses();
+            } else {
+                killLinuxProcesses();
+            }
+        } catch (Exception e) {
+            System.err.println("Error killing browser processes: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Mata procesos de Chrome y ChromeDriver en macOS.
+     */
+    private void killMacProcesses() throws Exception {
+        Runtime.getRuntime().exec("pkill -f chromedriver");
+        Thread.sleep(200);
+        Runtime.getRuntime().exec("pkill -f 'Google Chrome'");
+        Thread.sleep(200);
+        Runtime.getRuntime().exec("pkill -f 'Chrome'");
+        System.out.println("Chrome and ChromeDriver processes killed (macOS)");
+    }
+
+    /**
+     * Mata procesos de Chrome y ChromeDriver en Windows.
+     */
+    private void killWindowsProcesses() throws Exception {
+        Runtime.getRuntime().exec("taskkill /F /IM chromedriver.exe");
+        Runtime.getRuntime().exec("taskkill /F /IM chrome.exe");
+        System.out.println("Chrome and ChromeDriver processes killed (Windows)");
+    }
+
+    /**
+     * Mata procesos de Chrome y ChromeDriver en Linux.
+     */
+    private void killLinuxProcesses() throws Exception {
+        Runtime.getRuntime().exec("pkill -f chromedriver");
+        Runtime.getRuntime().exec("pkill -f chrome");
+        System.out.println("Chrome and ChromeDriver processes killed (Linux)");
     }
 
     /**
@@ -125,7 +287,17 @@ public class BaseTest {
      * @return Instancia actual de WebDriver configurada para la prueba actual
      */
     public WebDriver getDriver() {
-        return driver;
+        WebDriver currentDriver = driver.get();
+        System.out.println("getDriver() called for thread " + Thread.currentThread().getId() + ", driver: " + currentDriver);
+        
+        // Lazy initialization - si el driver es nulo, inicializarlo aquí
+        if (currentDriver == null) {
+            System.out.println("Driver is null in getDriver(), initializing...");
+            initializeDriver(ConfigManager.getBrowser(), ConfigManager.isHeadless());
+            currentDriver = driver.get();
+        }
+        
+        return currentDriver;
     }
 
     /**
@@ -145,7 +317,7 @@ public class BaseTest {
      *            Debe incluir el protocolo (http:// o https://)
      */
     protected void navigateTo(String url) {
-        driver.get(url);
+        getDriver().get(url);
     }
 
     /**
