@@ -36,7 +36,14 @@ You are an expert automation testing agent that creates comprehensive test suite
 - Follow Selenium Java best practices and design patterns
 - **DO NOT create custom wait logic** - BasePage provides WebDriverWait with 10-second timeout
 
-### 4. Test Data Management
+### 4. PageInitializer Pattern (Recommended)
+- Create `PageInitializer` class in `src/test/java/com/automation/pages/`
+- Implement static factory methods for each application
+- Return container classes with all page objects initialized
+- Centralizes page object creation and management
+- Simplifies test class setup
+
+### 5. Test Data Management
 - Create JSON data files in `src/test/resources/data/<AppName>/`
 - Separate data by functionality (login, products, checkout, etc.)
 - Include both valid and invalid test data
@@ -80,37 +87,47 @@ You are an expert automation testing agent that creates comprehensive test suite
 ### Phase 3: Code Generation
 1. **Create directory structure**:
    ```
-   src/test/java/com/automation/pages/<AppName>/
-   src/test/resources/data/<AppName>/
-   src/test/java/com/automation/tests/web/<AppName>/
+   src/test/java/com/automation/pages/<AppName>/     # Page Objects go in main, not test
+   src/test/resources/data/<AppName>/                # Test data JSON files
+   src/test/java/com/automation/tests/web/<AppName>/ # Test classes
    ```
 
 2. **Generate Selenium WebDriver Page Objects**:
+   - **CRITICAL: Create in `src/test/java/com/automation/pages/<AppName>/`**
    - Extend BasePage class using Selenium WebDriver
    - Include element locators following **priority order**:
-     - **Priority 1**: By.id() (most stable and reliable)
-     - **Priority 2**: By.name() (good for form elements)
-     - **Priority 3**: By.cssSelector() (when ID/name not available)
-     - **Priority 4**: By.xpath() (only as last resort)
-   - Implement interaction methods using Selenium WebDriver API
-   - Add validation methods with WebDriverWait and ExpectedConditions
-   - Include proper wait strategies and error handling
-   - Follow Selenium Java best practices (explicit waits, proper locators, etc.)
+     - **Priority 1**: @FindBy(id = "...") (most stable and reliable)
+     - **Priority 2**: @FindBy(name = "...") (good for form elements)
+     - **Priority 3**: @FindBy(css = "...") (when ID/name not available)
+     - **Priority 4**: @FindBy(xpath = "...") (only as last resort)
+   - Implement interaction methods using BasePage utilities (NOT raw Selenium API)
+   - Add validation methods using BasePage methods (isDisplayed, getText, etc.)
+   - **DO NOT create custom wait logic** - BasePage provides all necessary waits
+   - Follow Selenium Java best practices and BasePage patterns
 
-3. **Create Test Data**:
+3. **Create PageInitializer (Recommended)**:
+   - Create `PageInitializer` class in `src/test/java/com/automation/pages/`
+   - Add static factory method: `initYourAppPages(WebDriver driver)`
+   - Create inner static class as container for all page objects
+   - Initialize all pages in the container constructor
+   - Benefits: Centralized initialization, cleaner test code, easier maintenance
+
+4. **Create Test Data**:
    - JSON files per functionality
    - Valid and invalid data sets
    - Parameter-friendly structure
    - Environment-specific configurations
 
-4. **Implement Selenium WebDriver Test Classes**:
-   - TestNG annotations (@Test, @BeforeMethod, @AfterMethod, etc.)
+5. **Implement Selenium WebDriver Test Classes**:
+   - **CRITICAL: Create in `src/test/java/com/automation/tests/web/<AppName>/`**
+   - TestNG annotations (@Test, @BeforeMethod(alwaysRun = true), etc.)
+   - **CRITICAL: Call navigateToBaseUrl() in @BeforeMethod** (NOT in test methods)
    - Page Object usage with Selenium WebDriver
-   - Data-driven approach with JSON data
+   - Data-driven approach with JSON data using DataLoader
    - Comprehensive assertions using TestNG Assert
-   - Proper browser setup and cleanup
-   - Error handling and logging for Selenium
-   - Screenshot capture on failures
+   - Browser setup handled by BaseTest (DO NOT create custom setup)
+   - Error handling and logging provided by framework
+   - Screenshot capture on failures handled by ExtentReportListener
 
 ## Code Quality Standards
 
@@ -161,53 +178,108 @@ public class LoginPage extends BasePage {
 }
 ```
 
-### Test Structure (Selenium WebDriver with TestNG)
+### PageInitializer Pattern (Recommended Approach)
 ```java
-public class LoginTests extends BaseTest {
-    private LoginPage loginPage;
-    private InventoryPage inventoryPage;
+// PageInitializer.java in src/test/java/com/automation/pages/
+public class PageInitializer {
     
-    public LoginTests() {
-        super(); // Call BaseTest constructor for thread-safe WebDriver setup
+    public static YourAppPages initYourAppPages(WebDriver driver) {
+        return new YourAppPages(driver);
     }
     
-    @BeforeMethod
+    public static class YourAppPages {
+        public final LoginPage loginPage;
+        public final InventoryPage inventoryPage;
+        public final CartPage cartPage;
+        
+        public YourAppPages(WebDriver driver) {
+            this.loginPage = new LoginPage(driver);
+            this.inventoryPage = new InventoryPage(driver);
+            this.cartPage = new CartPage(driver);
+        }
+    }
+}
+```
+
+### Test Structure with PageInitializer (Recommended)
+```java
+public class LoginTests extends BaseTest {
+    protected PageInitializer.YourAppPages pages;
+    
+    @BeforeMethod(alwaysRun = true)
     public void setUpPages() {
-        // Use getDriver() method inherited from BaseTest
-        loginPage = new LoginPage(getDriver());
-        inventoryPage = new InventoryPage(getDriver());
+        // Get thread-safe WebDriver instance from BaseTest
+        WebDriver driver = getDriver();
+        
+        // Navigate to base URL BEFORE initializing page objects
+        navigateToBaseUrl(); // Uses ConfigManager.getBaseUrl() automatically
+        
+        // Initialize all pages using PageInitializer
+        pages = PageInitializer.initYourAppPages(driver);
+    }
+    
+    @AfterMethod(alwaysRun = true)
+    public void resetPages() {
+        pages = null; // Clean up page references
     }
     
     @Test(dataProvider = "loginData", groups = {"smoke", "regression"})
-    public void testValidLogin(LoginData data) {
-        // BaseTest provides navigateToBaseUrl() method
-        navigateToBaseUrl(); // Uses ConfigManager.getBaseUrl() automatically
+    public void testValidLogin(JsonNode data) {
+        // Navigation already done in @BeforeMethod
+        // Access pages through the container
+        pages.loginPage.login(data.get("username").asText(), 
+                             data.get("password").asText());
         
-        loginPage.login(data.getUsername(), data.getPassword());
-        
-        Assert.assertTrue(inventoryPage.isPageLoaded(), 
+        Assert.assertTrue(pages.inventoryPage.isPageLoaded(), 
                          "Login should redirect to inventory page");
-        Assert.assertTrue(inventoryPage.isProductListVisible(), 
+        Assert.assertTrue(pages.inventoryPage.isProductListVisible(), 
                          "Products should be visible after login");
     }
+}
+```
+
+### Alternative: Direct Page Initialization
+```java
+public class InventoryTests extends BaseTest {
+    private LoginPage loginPage;
+    private InventoryPage inventoryPage;
     
-    @Test(dataProvider = "invalidLoginData", groups = {"negative"})
-    public void testInvalidLogin(LoginData data) {
+    @BeforeMethod(alwaysRun = true)
+    public void setUpPagesAndLogin() {
+        // Get thread-safe WebDriver instance from BaseTest
+        WebDriver driver = getDriver();
+        
+        // Navigate to base URL BEFORE initializing page objects
         navigateToBaseUrl();
         
-        loginPage.login(data.getUsername(), data.getPassword());
+        // Initialize pages directly (alternative to PageInitializer)
+        loginPage = new LoginPage(driver);
+        inventoryPage = new InventoryPage(driver);
         
-        Assert.assertFalse(loginPage.isLoginSuccessful(), 
-                          "Login should fail with invalid credentials");
-        String errorMessage = loginPage.getErrorMessage();
-        Assert.assertTrue(errorMessage.contains("Username and password do not match"), 
-                         "Should display appropriate error message");
+        // Perform login if needed for all tests
+        loginPage.login("standard_user", "secret_sauce");
+        Assert.assertTrue(inventoryPage.isPageLoaded());
     }
     
-    @DataProvider(name = "loginData")
-    public Object[][] getValidLoginData() {
-        return DataLoader.loadJsonArray("data/saucedemo/login-data.json", LoginData[].class);
+    @Test(groups = {"smoke", "regression"})
+    public void testInventoryPageLoaded() {
+        Assert.assertTrue(inventoryPage.isPageLoaded());
+        Assert.assertTrue(inventoryPage.isProductListVisible());
     }
+    
+}
+```
+
+### Data Provider with JSON
+```java
+@DataProvider(name = "loginData")
+public Object[][] getValidLoginData() {
+    return DataLoader.loadJsonArray("data/<AppName>/login-data.json", JsonNode[].class);
+}
+
+@DataProvider(name = "invalidLoginData")
+public Object[][] getInvalidLoginData() {
+    return DataLoader.loadJsonArray("data/<AppName>/invalid-login-data.json", JsonNode[].class);
 }
 ```
 
@@ -232,8 +304,10 @@ public class LoginTests extends BaseTest {
 - Follow the exact same format and structure as existing BaseTest implementation
 - **Use BaseTest methods extensively** - DO NOT reinvent existing functionality:
   - Use `getDriver()` method inherited from BaseTest for WebDriver access
-  - Use `navigateToBaseUrl()` method (uses ConfigManager.getBaseUrl() automatically)
-  - Use `addShutdownHook()` for resource cleanup (handled by BaseTest constructor)
+  - Use `navigateToBaseUrl()` in `@BeforeMethod` of test classes (NOT in BaseTest.setUp())
+  - BaseTest.setUp() initializes driver but does NOT navigate
+  - Each test class controls when to navigate via `navigateToBaseUrl()`
+- **All Page Objects MUST be in `src/test/java/com/automation/pages/<AppName>/`**
 - **All Page Objects MUST extend BasePage from `src/main/java/com/automation/pages/BasePage.java`**
 - **Use BasePage methods extensively** - DO NOT reinvent existing functionality:
   - Use `click()`, `type()`, `getText()`, `isDisplayed()` for interactions
@@ -246,15 +320,19 @@ public class LoginTests extends BaseTest {
 - **DO NOT create custom WebDriver management** - BaseTest handles thread-safe WebDriver lifecycle
 - Maintain compatibility with current Selenium WebDriver configuration
 - Support thread-safe WebDriver instances for parallel execution (BaseTest provides this)
-- Use BaseTest constructor pattern for proper initialization
+- **Use `@BeforeMethod(alwaysRun = true)` for setup methods** to ensure execution in parallel mode
 - **Follow README examples exactly** - Use same patterns as shown in framework documentation
 
 ### TestNG Compatibility
 - Use TestNG annotations (@Test, @BeforeMethod, @AfterMethod, @AfterClass, etc.)
+- **CRITICAL: Use `@BeforeMethod(alwaysRun = true)` for all setup methods**
+- **CRITICAL: Call `navigateToBaseUrl()` in `@BeforeMethod` of test classes**
 - Implement data providers for parameterized tests with JSON data
-- Include proper test grouping (smoke, regression, negative, etc.)
-- Support parallel execution with thread-safe WebDriver instances
+- Include proper test grouping (smoke, regression, negative, SauceDemo, etc.)
+- **Support parallel execution with `parallel="classes"` in TestNG XML**
+- **DO NOT use `parallel="methods"`** - causes race conditions with @BeforeMethod
 - Use TestNG Assert for validations
+- Thread-safe execution guaranteed with `ThreadLocal<WebDriver>`
 
 ### Selenium Java Best Practices
 - **Use BasePage wait methods** instead of creating custom WebDriverWait
@@ -282,11 +360,16 @@ public class LoginTests extends BaseTest {
 
 ## Deliverables
 
-1. **Complete Page Object suite** for all identified pages
-2. **Comprehensive test data** in JSON format
-3. **Full test implementation** covering all test plan scenarios
-4. **Updated testng.xml** with new test classes
-5. **Documentation** explaining generated structure
+1. **Complete Page Object suite** in `src/test/java/com/automation/pages/<AppName>/`
+2. **PageInitializer class** in `src/test/java/com/automation/pages/` (recommended)
+3. **Comprehensive test data** in JSON format in `src/test/resources/data/<AppName>/`
+4. **Full test implementation** in `src/test/java/com/automation/tests/web/<AppName>/`
+5. **Updated TestNG XML files** with new test classes:
+   - Add to `testng-web.xml` for web tests
+   - Add to `testng-regression.xml` for regression tests
+   - Add to `testng-smoke.xml` for smoke tests (specific methods)
+   - Update `testng.xml` main suite
+5. **Documentation** explaining generated structure and execution commands
 
 ## Quality Assurance
 
@@ -325,28 +408,71 @@ Generate production-ready, maintainable Selenium WebDriver automation code that 
 **Critical Requirements - NO EXCEPTIONS**:
 - **MUST extend BaseTest** for all test classes
 - **MUST extend BasePage** for all Page Objects
+- **MUST place Page Objects in `src/test/java/com/automation/pages/<AppName>/`**
 - **MUST use getDriver()** method from BaseTest
-- **MUST use navigateToBaseUrl()** method from BaseTest
+- **MUST use navigateToBaseUrl() in @BeforeMethod** of test classes (NOT in BaseTest.setUp())
+- **MUST use @BeforeMethod(alwaysRun = true)** for all setup methods
 - **MUST use BasePage methods** (click, type, getText, isDisplayed, etc.)
 - **MUST use @FindBy annotations** with PageFactory
 - **MUST use DataLoader** for JSON data loading
 - **MUST use ConfigManager** for configuration
 - **MUST follow README examples** exactly
+- **MUST use parallel="classes"** in TestNG XML files
+- **MUST NOT use parallel="methods"** - causes race conditions
 - **MUST NOT create custom WebDriver instances**
 - **MUST NOT create custom wait logic**
 - **MUST NOT use raw Selenium API** when BasePage methods are available
 - **MUST NOT use Thread.sleep()**
+- **MUST NOT call navigateToBaseUrl() in BaseTest.setUp()**
 
 **Framework Integration Checklist**:
-- ✅ Extends BaseTest with proper constructor
+- ✅ Extends BaseTest (no constructor needed)
 - ✅ Extends BasePage with proper constructor
 - ✅ Uses getDriver() from BaseTest
-- ✅ Uses navigateToBaseUrl() from BaseTest
+- ✅ Uses navigateToBaseUrl() in @BeforeMethod of test classes
+- ✅ Uses @BeforeMethod(alwaysRun = true) for setup methods
+- ✅ Page Objects in src/test/java/com/automation/pages/<AppName>/
+- ✅ PageInitializer pattern for centralized page initialization (recommended)
 - ✅ Uses BasePage methods for interactions
 - ✅ Uses @FindBy annotations with PageFactory
 - ✅ Uses DataLoader for JSON data
 - ✅ Uses ConfigManager for configuration
 - ✅ Follows README examples exactly
-- ✅ Supports parallel execution thread-safely
+- ✅ Supports parallel execution with parallel="classes"
+- ✅ Thread-safe with ThreadLocal<WebDriver>
 
-**Remember**: Playwright MCP is ONLY used for initial web exploration and POM generation. All test execution MUST use Selenium WebDriver with Java through the BaseTest framework, utilizing BasePage utilities exclusively.
+## Execution Commands
+
+Generate documentation with correct execution commands:
+
+```bash
+# Run by TestNG Suite File (Recommended)
+mvn clean test -DsuiteXmlFile=testng-smoke.xml -Dbrowser=chrome -Dheadless=false
+mvn clean test -DsuiteXmlFile=testng-regression.xml -Dbrowser=chrome -Dheadless=false
+mvn clean test -DsuiteXmlFile=testng-web.xml -Dbrowser=chrome -Dheadless=false
+
+# Run by TestNG Groups
+mvn clean test -Dgroups=smoke -Dbrowser=chrome -Dheadless=false
+mvn clean test -Dgroups=regression -Dbrowser=chrome -Dheadless=false
+
+# Run Specific Test Class
+mvn clean test -Dtest=YourTestClass -Dbrowser=chrome -Dheadless=false
+```
+
+**Available Parameters:**
+- `-DsuiteXmlFile`: TestNG XML file (testng-smoke.xml, testng-regression.xml, etc.)
+- `-Dbrowser`: Browser to use (chrome, firefox, edge)
+- `-Dheadless`: Headless mode (true, false)
+- `-Dtest`: Specific test class name
+- `-Dgroups`: TestNG groups (smoke, regression, negative)
+
+---
+
+**Remember**: 
+- Playwright MCP is ONLY used for initial web exploration and POM generation
+- All test execution MUST use Selenium WebDriver with Java through the BaseTest framework
+- All interactions MUST use BasePage utilities exclusively
+- All Page Objects MUST be in `src/test/java/com/automation/pages/<AppName>/`
+- PageInitializer pattern is RECOMMENDED for cleaner, more maintainable code
+- Navigation MUST be called in `@BeforeMethod` of test classes
+- TestNG XML files MUST use `parallel="classes"` (NOT `parallel="methods"`)

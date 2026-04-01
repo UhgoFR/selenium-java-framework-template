@@ -13,7 +13,9 @@ import org.testng.annotations.*;
 import java.time.Duration;
 
 public class BaseTest {
+    // Thread-safe para ejecución en paralelo
     private static ThreadLocal<WebDriver> driver = new ThreadLocal<>();
+    private static ThreadLocal<Boolean> isInitializing = new ThreadLocal<>();
 
     public BaseTest() {
         System.out.println("BaseTest constructor called for thread: " + Thread.currentThread().getId());
@@ -41,10 +43,6 @@ public class BaseTest {
     @BeforeClass
     public void setUpClass() {
         System.out.println("BaseTest @BeforeClass called for thread: " + Thread.currentThread().getId());
-        if (driver.get() == null) {
-            System.out.println("Driver is null in @BeforeClass, initializing...");
-            initializeDriver(ConfigManager.getBrowser(), ConfigManager.isHeadless());
-        }
     }
 
     /**
@@ -78,6 +76,27 @@ public class BaseTest {
         boolean isHeadless = headless || ConfigManager.isHeadless();
         
         initializeDriver(selectedBrowser, isHeadless);
+        System.out.println("BaseTest: Driver initialized for thread: " + Thread.currentThread().getId());
+        // Navigation removed - each test class will navigate when needed
+    }
+    
+    /**
+     * Waits for the page to load completely after navigation.
+     * Uses document.readyState to ensure DOM is ready.
+     */
+    private void waitForPageToLoad() {
+        WebDriver currentDriver = driver.get();
+        if (currentDriver != null) {
+            try {
+                org.openqa.selenium.support.ui.WebDriverWait wait = 
+                    new org.openqa.selenium.support.ui.WebDriverWait(currentDriver, Duration.ofSeconds(30));
+                wait.until(webDriver -> 
+                    ((org.openqa.selenium.JavascriptExecutor) webDriver)
+                        .executeScript("return document.readyState").equals("complete"));
+            } catch (Exception e) {
+                System.err.println("Error waiting for page load: " + e.getMessage());
+            }
+        }
     }
 
     /**
@@ -96,11 +115,23 @@ public class BaseTest {
      */
     @AfterMethod(alwaysRun = true)
     public void tearDown() {
-        closeDriver("@AfterMethod");
+        System.out.println("BaseTest @AfterMethod called for thread: " + Thread.currentThread().getId());
+        // Cerrar driver solo si no estamos en modo global compartido
+        if (driver.get() != null) {
+            try {
+                driver.get().quit();
+                System.out.println("Driver closed in @AfterMethod for thread: " + Thread.currentThread().getId());
+            } catch (Exception e) {
+                System.err.println("Error closing driver in @AfterMethod: " + e.getMessage());
+            } finally {
+                driver.remove();
+            }
+        }
     }
 
     @AfterClass(alwaysRun = true)
     public void tearDownClass() {
+        System.out.println("BaseTest @AfterClass called for thread: " + Thread.currentThread().getId());
         closeDriver("@AfterClass");
     }
 
@@ -115,14 +146,23 @@ public class BaseTest {
      * @param browser Navegador a utilizar ("chrome" o "firefox")
      * @param headless Indica si ejecutar en modo sin interfaz gráfica
      */
-    private void initializeDriver(String browser, boolean headless) {
-        WebDriver webDriver = createWebDriver(browser, headless);
-        configureDriver(webDriver);
-        driver.set(webDriver);
+    protected void initializeDriver(String browser, boolean headless) {
+        if (isInitializing.get() != null && isInitializing.get()) {
+            throw new IllegalStateException("Driver initialization already in progress - circular dependency detected");
+        }
         
-        String caller = Thread.currentThread().getStackTrace()[3].getMethodName();
-        System.out.println("Driver initialized in " + caller + " for thread " + 
-                         Thread.currentThread().getId() + ": " + webDriver);
+        isInitializing.set(true);
+        try {
+            WebDriver webDriver = createWebDriver(browser, headless);
+            configureDriver(webDriver);
+            driver.set(webDriver);
+            
+            String caller = Thread.currentThread().getStackTrace()[3].getMethodName();
+            System.out.println("Driver initialized in " + caller + " for thread " + 
+                             Thread.currentThread().getId() + ": " + webDriver);
+        } finally {
+            isInitializing.set(false);
+        }
     }
 
     /**
@@ -155,6 +195,24 @@ public class BaseTest {
             options.addArguments("--headless");
         }
         options.addArguments("--no-sandbox", "--disable-dev-shm-usage");
+        // Disable Chrome native notifications and infobars to prevent password prompts
+        options.addArguments("--disable-notifications");
+        options.addArguments("--disable-infobars");
+        options.addArguments("--disable-save-password-bubble");
+        options.addArguments("--disable-password-manager-reauthentication");
+        
+        // Configurar preferencias para desactivar el guardado de contraseñas
+        java.util.Map<String, Object> prefs = new java.util.HashMap<String, Object>();
+        prefs.put("credentials_enable_service", false);
+        prefs.put("profile.password_manager_enabled", false);
+        prefs.put("password_manager.leak_detection", false); // Desactiva la detección de fugas
+        
+        options.setExperimentalOption("prefs", prefs);
+        
+        // Desactivar específicamente la comprobación de Safe Browsing para contraseñas
+        options.addArguments("--disable-features=PasswordLeakDetection,SafeBrowsingPasswordCheck");
+        options.addArguments("--incognito");
+        
         return new ChromeDriver(options);
     }
 
@@ -193,10 +251,9 @@ public class BaseTest {
      * @param context Contexto desde donde se llama el método (para logging)
      */
     private void closeDriver(String context) {
-        WebDriver currentDriver = driver.get();
-        if (currentDriver != null) {
+        if (driver.get() != null) {
             try {
-                currentDriver.quit();
+                driver.get().quit();
                 System.out.println("Driver closed and removed from thread: " + 
                                  Thread.currentThread().getId() + " (" + context + ")");
             } catch (Exception e) {
@@ -287,17 +344,21 @@ public class BaseTest {
      * @return Instancia actual de WebDriver configurada para la prueba actual
      */
     public WebDriver getDriver() {
-        WebDriver currentDriver = driver.get();
-        System.out.println("getDriver() called for thread " + Thread.currentThread().getId() + ", driver: " + currentDriver);
+        System.out.println("getDriver() called for thread " + Thread.currentThread().getId() + ", driver: " + driver.get());
         
-        // Lazy initialization - si el driver es nulo, inicializarlo aquí
-        if (currentDriver == null) {
-            System.out.println("Driver is null in getDriver(), initializing...");
+        if (driver.get() == null) {
+            if (isInitializing.get() != null && isInitializing.get()) {
+                throw new IllegalStateException("Driver initialization in progress - circular dependency detected");
+            }
+            
+            System.out.println("Driver is null in thread " + Thread.currentThread().getId() + 
+                             ", initializing as fallback...");
             initializeDriver(ConfigManager.getBrowser(), ConfigManager.isHeadless());
-            currentDriver = driver.get();
+            System.out.println("Driver initialized in getDriver() for thread " + Thread.currentThread().getId() + 
+                             ": " + driver.get());
         }
         
-        return currentDriver;
+        return driver.get();
     }
 
     /**

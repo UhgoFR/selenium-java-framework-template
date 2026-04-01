@@ -32,7 +32,9 @@ public class ConfigManager {
     }
 
     public static String getBaseUrl() {
-        return getProperty("base.url", "https://example.com");
+        String url = getProperty("base.url", "https://example.com");
+        System.out.println("ConfigManager: Loading base URL: " + url);
+        return url;
     }
 
     public static String getApiBaseUrl() {

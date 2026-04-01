@@ -76,4 +76,28 @@ public class DataLoader {
             throw new RuntimeException("Error al cargar el archivo JSON como JsonNode: " + filePath, e);
         }
     }
+
+    /**
+     * Carga un archivo JSON y lo convierte a un array de objetos del tipo especificado.
+     * 
+     * @param filePath Ruta del archivo JSON en el classpath (ej: "data/users.json")
+     * @param clazz Clase array destino para la deserialización (ej: User[].class)
+     * @param <T> Tipo genérico del array a retornar
+     * @return Array de objetos deserializado desde el JSON
+     * @throws RuntimeException si ocurre un error al leer o parsear el JSON
+     */
+    public static <T> T[] loadJsonArray(String filePath, Class<T[]> clazz) {
+        try {
+            InputStream inputStream = DataLoader.class.getClassLoader().getResourceAsStream(filePath);
+            if (inputStream == null) {
+                throw new RuntimeException("No se encontró el archivo: " + filePath);
+            }
+            
+            T[] array = objectMapper.readValue(inputStream, clazz);
+            inputStream.close();
+            return array;
+        } catch (IOException e) {
+            throw new RuntimeException("Error al cargar el archivo JSON como array: " + filePath, e);
+        }
+    }
 }

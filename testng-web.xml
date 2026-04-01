@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
-<suite name="Automation Test Suite" parallel="classes" thread-count="3">
+<suite name="Web Test Suite" parallel="classes" thread-count="3">
     
     <listeners>
         <listener class-name="com.automation.listeners.ExtentReportListener"/>
@@ -19,13 +19,6 @@
             <class name="com.automation.tests.web.SauceDemo.CheckoutTests"/>
             <class name="com.automation.tests.web.SauceDemo.SauceDemoTestSuite"/>
             <class name="com.automation.tests.web.WebTests"/>
-        </classes>
-    </test>
-    
-    <!-- API TESTS - All API automation tests -->
-    <test name="API Tests">
-        <classes>
-            <class name="com.automation.tests.api.APITests"/>
         </classes>
     </test>
     

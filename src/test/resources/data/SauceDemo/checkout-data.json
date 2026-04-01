@@ -1,0 +1,99 @@
+{
+  "validCheckoutInfo": [
+    {
+      "firstName": "John",
+      "lastName": "Doe",
+      "postalCode": "12345",
+      "description": "Valid checkout information"
+    },
+    {
+      "firstName": "Jane",
+      "lastName": "Smith",
+      "postalCode": "67890",
+      "description": "Alternative valid checkout information"
+    },
+    {
+      "firstName": "Carlos",
+      "lastName": "García",
+      "postalCode": "08001",
+      "description": "International characters in name"
+    }
+  ],
+  "invalidCheckoutInfo": [
+    {
+      "firstName": "",
+      "lastName": "Doe",
+      "postalCode": "12345",
+      "description": "Empty first name",
+      "expectedError": "First Name is required"
+    },
+    {
+      "firstName": "John",
+      "lastName": "",
+      "postalCode": "12345",
+      "description": "Empty last name",
+      "expectedError": "Last Name is required"
+    },
+    {
+      "firstName": "John",
+      "lastName": "Doe",
+      "postalCode": "",
+      "description": "Empty postal code",
+      "expectedError": "Postal Code is required"
+    },
+    {
+      "firstName": "",
+      "lastName": "",
+      "postalCode": "12345",
+      "description": "Empty first and last name",
+      "expectedError": "First Name is required"
+    },
+    {
+      "firstName": "John",
+      "lastName": "",
+      "postalCode": "",
+      "description": "Empty last name and postal code",
+      "expectedError": "Last Name is required"
+    },
+    {
+      "firstName": "",
+      "lastName": "Doe",
+      "postalCode": "",
+      "description": "Empty first name and postal code",
+      "expectedError": "First Name is required"
+    },
+    {
+      "firstName": "",
+      "lastName": "",
+      "postalCode": "",
+      "description": "All fields empty",
+      "expectedError": "First Name is required"
+    }
+  ],
+  "edgeCases": [
+    {
+      "firstName": "J",
+      "lastName": "D",
+      "postalCode": "1",
+      "description": "Single character inputs"
+    },
+    {
+      "firstName": "VeryLongFirstNameThatExceedsNormalLimits",
+      "lastName": "VeryLongLastNameThatExceedsNormalLimits",
+      "postalCode": "1234567890",
+      "description": "Long input values"
+    },
+    {
+      "firstName": "John123",
+      "lastName": "Doe456",
+      "postalCode": "12A34",
+      "description": "Mixed alphanumeric inputs"
+    },
+    {
+      "firstName": "John@#$",
+      "lastName": "Doe!%^",
+      "postalCode": "12-34",
+      "description": "Special characters in inputs"
+    }
+  ]
+}

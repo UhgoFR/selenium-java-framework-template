@@ -92,17 +92,12 @@ RequestSpecification threadRequestSpec = new RequestSpecBuilder()
     .setAccept("application/json")
     .setContentType("application/json")
     .addFilter(RequestLoggingFilter.logRequestTo(System.out))
-    .addFilter(ResponseLoggingFilter.logResponseTo(System.out))
-    .build();
-```
-
-## ⚙️ Configuración de Ejecución en Paralelo
 
 ### testng.xml - Configuración Principal
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
-<suite name="Automation Test Suite" parallel="classes" thread-count="4">
+<suite name="Automation Test Suite" parallel="classes" thread-count="3">
     
     <listeners>
         <listener class-name="com.automation.listeners.ExtentReportListener"/>
@@ -113,30 +108,35 @@ RequestSpecification threadRequestSpec = new RequestSpecBuilder()
     <parameter name="environment" value="test"/>
     <parameter name="headless" value="false"/>
     
+    <!-- WEB TESTS - All web automation tests -->
     <test name="Web Tests">
         <classes>
-            <class name="com.automation.tests.WebTests"/>
-            <class name="com.automation.tests.HomePageTest"/>
+            <class name="com.automation.tests.web.YourWebTestClass"/>
+            <!-- Agregar más clases de tests Web aquí -->
         </classes>
     </test>
     
+    <!-- API TESTS - All API automation tests -->
     <test name="API Tests">
         <classes>
-            <class name="com.automation.tests.APITests"/>
+            <class name="com.automation.tests.api.YourAPITestClass"/>
+            <!-- Agregar más clases de tests API aquí -->
         </classes>
     </test>
     
 </suite>
 ```
 
-### **Opciones de Paralelismo**
+### **Configuración de Paralelismo (Thread-Safe)**
 
-| Configuración | Descripción | Runners Simultáneos |
-|---------------|-------------|-------------------|
-| `parallel="tests"` | Ejecuta diferentes `<test>` en paralelo | Hasta 4 tests |
-| `parallel="classes"` | Ejecuta diferentes clases en paralelo | Hasta 4 clases |
-| `parallel="methods"` | Ejecuta métodos en paralelo | Hasta 4 métodos |
-| `parallel="false"` | Ejecución secuencial | 1 runner |
+> **Importante:** Todos los archivos usan `parallel="classes"` para garantizar ejecución thread-safe.
+
+| Configuración | Descripción | Uso Recomendado |
+|---------------|-------------|----------------|
+| `parallel="classes"` ✅ | Ejecuta diferentes clases en paralelo | **Actual - Thread-safe** |
+| `parallel="methods"` ❌ | Ejecuta métodos en paralelo | No recomendado - causa race conditions |
+| `parallel="tests"` | Ejecuta diferentes `<test>` en paralelo | Alternativa válida |
+| `parallel="false"` | Ejecución secuencial | Solo para debugging |
 
 ## 🚀 Comandos de Ejecución
 
@@ -149,46 +149,65 @@ mvn clean install
 mvn dependency:tree
 ```
 
-### Ejecución en Paralelo
+### Ejecución por Tipo de Suite
 
-#### **Suite Completa en Paralelo**
+#### **Smoke Tests (Validación rápida)**
 ```bash
-# Ejecutar todos los tests con 4 runners simultáneos
-mvn clean test -Dsurefire.suiteXmlFiles=testng.xml
-
-# Ejecutar ignorando fallos (para CI/CD)
-mvn clean test -Dmaven.test.failure.ignore=true
+mvn clean test -DsuiteXmlFile=testng-smoke.xml -Dbrowser=chrome -Dheadless=false
 ```
 
-#### **Pruebas Web en Paralelo**
+#### **Regression Tests (Suite completa)**
 ```bash
-# Ejecutar solo pruebas web con múltiples threads
-mvn test -Dgroups=WebTest -Dsurefire.suiteXmlFiles=testng.xml
-
-# Prueba específica
-mvn test -Dtest=HomePageTest -Dsurefire.suiteXmlFiles=testng.xml
+mvn clean test -DsuiteXmlFile=testng-regression.xml -Dbrowser=chrome -Dheadless=false
 ```
 
-#### **Pruebas API en Paralelo**
+#### **Negative Tests (Manejo de errores)**
 ```bash
-# Ejecutar solo pruebas API con thread-safe
-mvn test -Dgroups=ApiTest -Dsurefire.suiteXmlFiles=testng.xml
-
-# Prueba específica
-mvn test -Dtest=APITests -Dsurefire.suiteXmlFiles=testng.xml
+mvn clean test -DsuiteXmlFile=testng-negative.xml -Dbrowser=chrome -Dheadless=false
 ```
 
-#### **Ejecución con Parámetros**
+#### **Solo Tests Web**
 ```bash
-# Diferentes navegadores en paralelo
-mvn test -Dbrowser=chrome -Dsurefire.suiteXmlFiles=testng.xml
-mvn test -Dbrowser=firefox -Dsurefire.suiteXmlFiles=testng.xml
+mvn clean test -DsuiteXmlFile=testng-web.xml -Dbrowser=chrome -Dheadless=false
+```
 
+#### **Solo Tests API**
+```bash
+mvn clean test -DsuiteXmlFile=testng-api.xml
+```
+
+#### **Suite Completa (Web + API)**
+```bash
+mvn clean test -DsuiteXmlFile=testng.xml -Dbrowser=chrome -Dheadless=false
+```
+
+### Parámetros de Ejecución Disponibles
+
+| Parámetro | Valores | Descripción | Ejemplo |
+|-----------|---------|-------------|----------|
+| `-DsuiteXmlFile` | `testng.xml`, `testng-smoke.xml`, etc. | Archivo de suite TestNG a ejecutar | `-DsuiteXmlFile=testng-smoke.xml` |
+| `-Dbrowser` | `chrome`, `firefox`, `edge` | Navegador para tests Web | `-Dbrowser=firefox` |
+| `-Dheadless` | `true`, `false` | Modo headless (sin UI) | `-Dheadless=true` |
+| `-Dtest` | Nombre de clase | Ejecutar clase específica | `-Dtest=YourTestClass` |
+| `-Dgroups` | `smoke`, `regression`, `negative` | Filtrar por grupos TestNG | `-Dgroups=smoke` |
+
+### Ejemplos de Uso
+
+```bash
 # Modo headless para CI/CD
-mvn test -Dheadless=true -Dsurefire.suiteXmlFiles=testng.xml
+mvn clean test -DsuiteXmlFile=testng-smoke.xml -Dbrowser=chrome -Dheadless=true
 
-# Combinación de parámetros
-mvn test -Dbrowser=chrome -Dheadless=true -Dsurefire.suiteXmlFiles=testng.xml
+# Firefox en modo visible
+mvn clean test -DsuiteXmlFile=testng-web.xml -Dbrowser=firefox -Dheadless=false
+
+# Test específico
+mvn clean test -Dtest=YourTestClass -Dbrowser=chrome -Dheadless=false
+
+# Método específico
+mvn clean test -Dtest=YourTestClass#testMethodName -Dbrowser=chrome -Dheadless=false
+
+# Por grupos TestNG
+mvn clean test -Dgroups=smoke -Dbrowser=chrome -Dheadless=false
 ```
 
 ### Verificación de Paralelismo
@@ -259,73 +278,189 @@ api.base.url=https://jsonplaceholder.typicode.com
 log.level=INFO
 ```
 
-## 💡 Ejemplos de Uso
+## � Cómo Extender el Framework
 
-### Prueba Web con Thread-Safety
+### Agregar Tests Web
+
+#### **1. Crear Clase de Test**
 ```java
-public class WebTests extends BaseTest {
+package com.automation.tests.web;
+
+import com.automation.base.BaseTest;
+import org.testng.annotations.*;
+
+public class YourWebTests extends BaseTest {
     
-    @Test(description = "Prueba de búsqueda thread-safe", groups = "WebTest")
-    public void testSearchFunctionality() {
-        // getDriver() es thread-safe y maneja lazy initialization
-        HomePage homePage = new HomePage(getDriver());
+    private YourPage yourPage;
+    
+    @BeforeMethod(alwaysRun = true)
+    public void setUpPages() {
+        // Obtener driver thread-safe
+        WebDriver driver = getDriver();
+        
+        // Navegar a la URL base
         navigateToBaseUrl();
         
-        // Implicit wait de 10 segundos configurado automáticamente
-        homePage.search("Selenium WebDriver");
-        
-        // Verificación con WebDriverWait explícito si es necesario
-        Assert.assertTrue(homePage.isSearchResultsVisible(), 
-                        "Los resultados de búsqueda deberían ser visibles");
+        // Inicializar page objects
+        yourPage = new YourPage(driver);
+    }
+    
+    @Test(description = "Test example", groups = {"smoke", "regression"})
+    public void testExample() {
+        // Tu lógica de test aquí
+        yourPage.performAction();
+        Assert.assertTrue(yourPage.isElementVisible(), "Element should be visible");
     }
 }
 ```
 
-### Prueba API Thread-Safe
+#### **2. Crear Page Object**
 ```java
-public class APITests extends BaseAPITest {
-    
-    @Test(description = "Prueba API thread-safe", groups = "ApiTest")
-    public void basicGetTest() {
-        // getRequestSpecification() es thread-safe
-        Response response = given()
-                .spec(getRequestSpecification())
-                .when()
-                .get("/users/1")
-                .then()
-                .extract().response();
+package com.automation.pages;
 
-        Assert.assertEquals(response.getStatusCode(), 200, 
-                          "El código de estado no es 200");
-        
-        System.out.println("Response: " + response.asString());
-    }
-}
-```
+import com.automation.pages.BasePage;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebElement;
+import org.openqa.selenium.support.FindBy;
 
-### Page Object con BasePage Optimizada
-```java
-public class HomePage extends BasePage {
-    @FindBy(name = "q")
-    private WebElement searchInput;
+public class YourPage extends BasePage {
     
-    @FindBy(name = "btnK")
-    private WebElement searchButton;
+    @FindBy(id = "elementId")
+    private WebElement element;
     
-    public HomePage(WebDriver driver) {
+    public YourPage(WebDriver driver) {
         super(driver);
     }
     
-    public void search(String term) {
-        // Usa métodos thread-safe de BasePage con waits automáticos
-        type(searchInput, term);
-        click(searchButton);
+    public void performAction() {
+        // Usa métodos de BasePage (thread-safe con waits automáticos)
+        click(element);
+        type(element, "text");
     }
     
-    public boolean isSearchResultsVisible() {
-        // Implicit wait configurado automáticamente
-        return isDisplayed(By.id("search"));
+    public boolean isElementVisible() {
+        return isDisplayed(element);
     }
+}
+```
+
+#### **3. Agregar a testng.xml**
+```xml
+<test name="Web Tests">
+    <classes>
+        <class name="com.automation.tests.web.YourWebTests"/>
+    </classes>
+</test>
+```
+
+---
+
+### Agregar Tests API
+
+#### **1. Crear Clase de Test**
+```java
+package com.automation.tests.api;
+
+import com.automation.base.BaseAPITest;
+import io.restassured.response.Response;
+import org.testng.annotations.*;
+import static io.restassured.RestAssured.given;
+
+public class YourAPITests extends BaseAPITest {
+    
+    @Test(description = "GET request example", groups = {"smoke", "api"})
+    public void testGetEndpoint() {
+        Response response = given()
+                .spec(getRequestSpecification())
+                .when()
+                .get("/endpoint")
+                .then()
+                .spec(getResponseSpecification())
+                .extract().response();
+        
+        Assert.assertEquals(response.getStatusCode(), 200);
+        // Validaciones adicionales
+    }
+    
+    @Test(description = "POST request example", groups = {"regression", "api"})
+    public void testPostEndpoint() {
+        String requestBody = "{ \"key\": \"value\" }";
+        
+        Response response = given()
+                .spec(getRequestSpecification())
+                .body(requestBody)
+                .when()
+                .post("/endpoint")
+                .then()
+                .extract().response();
+        
+        Assert.assertEquals(response.getStatusCode(), 201);
+    }
+}
+```
+
+#### **2. Crear POJO con Lombok (Opcional)**
+```java
+package com.automation.models;
+
+import lombok.Data;
+import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class YourModel {
+    private String id;
+    private String name;
+    private String description;
+}
+```
+
+#### **3. Agregar a testng.xml**
+```xml
+<test name="API Tests">
+    <classes>
+        <class name="com.automation.tests.api.YourAPITests"/>
+    </classes>
+</test>
+```
+
+---
+
+### Configurar Data Providers
+
+#### **Crear archivo JSON de datos**
+`src/test/resources/data/your-test-data.json`
+```json
+[
+  {
+    "testCase": "Valid scenario",
+    "input": "value1",
+    "expected": "result1"
+  },
+  {
+    "testCase": "Invalid scenario",
+    "input": "value2",
+    "expected": "result2"
+  }
+]
+```
+
+#### **Usar DataProvider en tests**
+```java
+@DataProvider(name = "testData")
+public Object[][] getTestData() {
+    return DataLoader.loadJsonData("data/your-test-data.json");
+}
+
+@Test(dataProvider = "testData", groups = {"regression"})
+public void testWithData(JsonNode data) {
+    String input = data.get("input").asText();
+    String expected = data.get("expected").asText();
+    
+    // Tu lógica de test
+    Assert.assertEquals(actualResult, expected);
 }
 ```
 
@@ -351,11 +486,12 @@ target/
 ## ✅ Características Implementadas
 
 ### **Core Framework**
-- ✅ **Ejecución en Paralelo Thread-Safe** - 4 runners simultáneos
+- ✅ **Ejecución en Paralelo Thread-Safe** - `parallel="classes"` con 3 threads
 - ✅ **Gestión Robusta de WebDriver** - Cierre garantizado multi-capa
 - ✅ **ThreadSafe API Testing** - BaseAPITest con ThreadLocal
 - ✅ **Timeouts Configurados** - Implicit (10s), Page Load (30s), Script (20s)
 - ✅ **Limpieza Multiplataforma** - macOS, Windows, Linux
+- ✅ **Navegación Controlada** - `navigateToBaseUrl()` en `@BeforeMethod` de clases hijas
 
 ### **Optimización y Mantenimiento**
 - ✅ **Código DRY Eliminado** - Métodos reutilizables en BaseTest
@@ -375,20 +511,116 @@ target/
 - ✅ **Configuración Centralizada** - Properties + TestNG
 - ✅ **Parámetros Flexibles** - Browser, headless, environment
 
+## 📦 Configuración de Maven (pom.xml)
+
+### Dependencias Principales
+
+```xml
+<dependencies>
+    <!-- Selenium WebDriver -->
+    <dependency>
+        <groupId>org.seleniumhq.selenium</groupId>
+        <artifactId>selenium-java</artifactId>
+        <version>4.15.0</version>
+    </dependency>
+    
+    <!-- Rest Assured -->
+    <dependency>
+        <groupId>io.rest-assured</groupId>
+        <artifactId>rest-assured</artifactId>
+        <version>5.3.2</version>
+    </dependency>
+    
+    <!-- TestNG -->
+    <dependency>
+        <groupId>org.testng</groupId>
+        <artifactId>testng</artifactId>
+        <version>7.8.0</version>
+    </dependency>
+    
+    <!-- Extent Reports -->
+    <dependency>
+        <groupId>com.aventstack</groupId>
+        <artifactId>extentreports</artifactId>
+        <version>5.1.1</version>
+    </dependency>
+    
+    <!-- Lombok -->
+    <dependency>
+        <groupId>org.projectlombok</groupId>
+        <artifactId>lombok</artifactId>
+        <version>1.18.30</version>
+        <scope>provided</scope>
+    </dependency>
+    
+    <!-- WebDriverManager -->
+    <dependency>
+        <groupId>io.github.bonigarcia</groupId>
+        <artifactId>webdrivermanager</artifactId>
+        <version>5.5.3</version>
+    </dependency>
+</dependencies>
+```
+
+### Configuración de Maven Surefire Plugin
+
+```xml
+<build>
+    <plugins>
+        <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <version>3.1.2</version>
+            <configuration>
+                <suiteXmlFiles>
+                    <suiteXmlFile>${suiteXmlFile}</suiteXmlFile>
+                </suiteXmlFiles>
+                <systemPropertyVariables>
+                    <browser>${browser}</browser>
+                    <headless>${headless}</headless>
+                </systemPropertyVariables>
+            </configuration>
+        </plugin>
+    </plugins>
+</build>
+```
+
+### Properties Configurables
+
+```xml
+<properties>
+    <!-- Versión de Java -->
+    <maven.compiler.source>11</maven.compiler.source>
+    <maven.compiler.target>11</maven.compiler.target>
+    
+    <!-- Encoding -->
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    
+    <!-- Suite TestNG por defecto -->
+    <suiteXmlFile>testng.xml</suiteXmlFile>
+    
+    <!-- Configuración de ejecución -->
+    <browser>chrome</browser>
+    <headless>false</headless>
+</properties>
+```
+
+---
+
 ## 🎯 Inicio Rápido
 
 ```bash
 # 1. Instalar dependencias
 mvn clean install
 
-# 2. Ejecutar pruebas web en paralelo
-mvn test -Dgroups=WebTest -Dsurefire.suiteXmlFiles=testng.xml
+# 2. Ejecutar smoke tests (validación rápida)
+mvn clean test -DsuiteXmlFile=testng-smoke.xml -Dbrowser=chrome -Dheadless=false
 
-# 3. Ejecutar pruebas API en paralelo
-mvn test -Dgroups=ApiTest -Dsurefire.suiteXmlFiles=testng.xml
+# 3. Ver reportes generados
+open target/extent-reports/ExtentReport_*.html
 
-# 4. Ver reportes generados
-open target/extent-reports/ExtentReport_$(date +%Y%m%d)_*.html
+# 4. Ejecutar suite completa
+mvn clean test -DsuiteXmlFile=testng.xml -Dbrowser=chrome -Dheadless=false
 
 # 5. Verificar que no quedan procesos
 ps aux | grep -i chromedriver | grep -v grep | wc -l
@@ -440,19 +672,78 @@ parallel="classes" thread-count="4"
 - Configurar `-Dmaven.test.failure.ignore=true`
 - Verificar `thread-count` adecuado para el entorno
 
-## 📈 Métricas de Rendimiento
+## 🎨 Patrones de Diseño Implementados
 
-### **Ejecución Típica**
-- **Web Tests (5 tests)**: ~25-30 segundos en paralelo
-- **API Tests (7 tests)**: ~3-5 segundos en paralelo
-- **Suite Completa**: ~30-35 segundos con 4 runners
-- **Limpieza**: 0 procesos residuales
+### **Page Object Model (POM)**
+- Separación de lógica de UI y lógica de test
+- Reutilización de código
+- Mantenibilidad mejorada
+- Encapsulación de elementos y acciones
 
-### **Uso de Recursos**
-- **Memoria**: ~200-400MB por runner
-- **CPU**: 1-2 cores por runner activo
-- **Browsers**: Máximo 4 instancias simultáneas
+### **Factory Pattern**
+- Creación centralizada de WebDriver
+- Soporte para múltiples navegadores
+- Configuración dinámica basada en parámetros
+
+### **Singleton Pattern**
+- ConfigManager para gestión de propiedades
+- Una sola instancia de configuración por ejecución
+
+### **ThreadLocal Pattern**
+- Aislamiento de WebDriver por thread
+- Aislamiento de RequestSpecification por thread
+- Ejecución paralela thread-safe
+
+### **Builder Pattern**
+- RequestSpecBuilder para configuración de API
+- ResponseSpecBuilder para validaciones
 
 ---
 
-**🎉 Framework enterprise-ready para automatización web y API con ejecución en paralelo, gestión robusta de recursos y configuración avanzada.**
+## 📈 Métricas de Rendimiento
+
+### **Ejecución Típica (parallel="classes", thread-count="3")**
+- **Smoke Tests**: ~15-20 segundos
+- **Regression Tests**: ~3-5 minutos (depende del número de tests)
+- **Negative Tests**: ~1-2 minutos
+- **API Tests**: ~30 segundos - 1 minuto
+- **Limpieza**: 0 procesos residuales
+
+### **Uso de Recursos**
+- **Memoria**: ~200-400MB por thread
+- **CPU**: 1-2 cores por thread activo
+- **Browsers**: Máximo 3 instancias simultáneas (thread-count=3)
+- **Thread Safety**: Garantizado con `ThreadLocal<WebDriver>`
+
+### **Escalabilidad**
+- Ajustar `thread-count` según recursos disponibles
+- Recomendado: 3-4 threads en máquina local
+- CI/CD: 5-8 threads con recursos adecuados
+
+---
+
+## 🔄 Cambios Recientes (2026-03-29)
+
+### **Mejoras en Paralelización:**
+- ✅ Cambiado de `parallel="methods"` a `parallel="classes"` en todos los archivos TestNG
+- ✅ Navegación movida de `BaseTest.setUp()` a `@BeforeMethod` de clases hijas
+- ✅ Eliminados problemas de `NullPointerException` y `TimeoutException` en ejecución paralela
+- ✅ Thread-safety garantizado con `ThreadLocal<WebDriver>`
+
+### **Nuevos Archivos TestNG:**
+- ✅ `testng-smoke.xml` - 6 tests críticos específicos
+- ✅ `testng-regression.xml` - Suite de regresión completa
+- ✅ `testng-negative.xml` - Tests de manejo de errores
+- ✅ `testng-web.xml` - Solo tests Web
+- ✅ `testng-api.xml` - Solo tests API
+
+### **Configuración:**
+- ✅ `pom.xml` usa `${suiteXmlFile}` dinámicamente
+- ✅ Todos los archivos usan `thread-count="3"` con `parallel="classes"`
+- ✅ Documentación actualizada en README.md, TEST-EXECUTION-GUIDE.md y SauceDemo/README.md
+
+---
+
+**🎉 Framework enterprise-ready para automatización web y API con ejecución en paralelo thread-safe, gestión robusta de recursos y configuración avanzada.**
+
+**Última actualización:** 2026-03-29
