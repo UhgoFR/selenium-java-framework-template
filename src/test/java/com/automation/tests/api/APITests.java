@@ -1,4 +1,4 @@
-package com.automation.tests;
+package com.automation.tests.api;
 
 import com.automation.base.BaseAPITest;
 import com.automation.models.User;

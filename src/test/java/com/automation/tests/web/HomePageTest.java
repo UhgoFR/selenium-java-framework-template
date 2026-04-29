@@ -1,4 +1,4 @@
-package com.automation.tests;
+package com.automation.tests.web;
 
 import com.automation.base.BaseTest;
 import com.automation.pages.HomePage;
@@ -11,12 +11,13 @@ public class HomePageTest extends BaseTest {
 
     @BeforeMethod
     public void setUpHomePage() {
+        // El driver se inicializa automáticamente en BaseTest @BeforeMethod
         homePage = new HomePage(getDriver());
     }
 
     @Test(description = "Verificar que la página de inicio carga correctamente", groups = "WebTest")
     public void testHomePageLoad() {
-        homePage = new HomePage(getDriver());
+        // homePage ya está inicializado en @BeforeMethod
         homePage.navigateToHomePage();
         
         Assert.assertTrue(homePage.isMainTitleDisplayed(), 
@@ -30,7 +31,7 @@ public class HomePageTest extends BaseTest {
 
     @Test(description = "Verificar funcionalidad de búsqueda", groups = "WebTest")
     public void testSearchFunctionality() {
-        homePage = new HomePage(getDriver());
+        // homePage ya está inicializado en @BeforeMethod
         homePage.navigateToHomePage();
         
         if (homePage.isSearchInputVisible()) {
@@ -47,7 +48,7 @@ public class HomePageTest extends BaseTest {
 
     @Test(description = "Verificar navegación a About", groups = "WebTest")
     public void testNavigationToAbout() {
-        homePage = new HomePage(getDriver());
+        // homePage ya está inicializado en @BeforeMethod
         homePage.navigateToHomePage();
         
         homePage.clickAboutLink(); // Esperar a que cargue la página About

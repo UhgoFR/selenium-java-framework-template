@@ -1,0 +1,55 @@
+{
+  "validCredentials": [
+    {
+      "username": "standard_user",
+      "password": "secret_sauce",
+      "description": "Valid standard user credentials"
+    }
+  ],
+  "invalidCredentials": [
+    {
+      "username": "invalid_user",
+      "password": "wrong_password",
+      "description": "Completely invalid credentials",
+      "expectedError": "Username and password do not match"
+    },
+    {
+      "username": "standard_user",
+      "password": "wrong_password",
+      "description": "Valid username, invalid password",
+      "expectedError": "Username and password do not match"
+    },
+    {
+      "username": "invalid_user",
+      "password": "secret_sauce",
+      "description": "Invalid username, valid password",
+      "expectedError": "Username and password do not match"
+    },
+    {
+      "username": "",
+      "password": "secret_sauce",
+      "description": "Empty username",
+      "expectedError": "Username is required"
+    },
+    {
+      "username": "standard_user",
+      "password": "",
+      "description": "Empty password",
+      "expectedError": "Password is required"
+    },
+    {
+      "username": "",
+      "password": "",
+      "description": "Empty username and password",
+      "expectedError": "Username is required"
+    }
+  ],
+  "lockedUser": [
+    {
+      "username": "locked_out_user",
+      "password": "secret_sauce",
+      "description": "Locked out user account",
+      "expectedError": "Sorry, this user has been locked out"
+    }
+  ]
+}

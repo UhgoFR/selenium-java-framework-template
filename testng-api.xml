@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<suite name="API Test Suite" parallel="classes" thread-count="3">
+    
+    <listeners>
+        <listener class-name="com.automation.listeners.ExtentReportListener"/>
+        <listener class-name="com.automation.listeners.AnnotationTransformer"/>
+    </listeners>
+    
+    <parameter name="environment" value="test"/>
+    
+    <!-- API TESTS - All API automation tests -->
+    <test name="API Tests">
+        <classes>
+            <class name="com.automation.tests.api.APITests"/>
+        </classes>
+    </test>
+    
+</suite>

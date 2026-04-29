@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
-<suite name="Automation Test Suite" parallel="classes" thread-count="3">
+<suite name="Negative Test Suite" parallel="classes" thread-count="3">
     
     <listeners>
         <listener class-name="com.automation.listeners.ExtentReportListener"/>
@@ -11,21 +11,25 @@
     <parameter name="environment" value="test"/>
     <parameter name="headless" value="false"/>
     
-    <!-- WEB TESTS - All web automation tests -->
-    <test name="Web Tests">
+    <!-- 
+    ============================================
+    NEGATIVE TESTS - Error handling validation
+    ============================================
+    Purpose: Verify system handles errors and invalid inputs correctly
+    Execution time: ~5-10 minutes
+    When to run: During QA cycles, before releases
+    -->
+    <test name="Negative Tests">
+        <groups>
+            <run>
+                <include name="negative"/>
+            </run>
+        </groups>
         <classes>
             <class name="com.automation.tests.web.SauceDemo.LoginTests"/>
             <class name="com.automation.tests.web.SauceDemo.InventoryTests"/>
             <class name="com.automation.tests.web.SauceDemo.CheckoutTests"/>
             <class name="com.automation.tests.web.SauceDemo.SauceDemoTestSuite"/>
-            <class name="com.automation.tests.web.WebTests"/>
-        </classes>
-    </test>
-    
-    <!-- API TESTS - All API automation tests -->
-    <test name="API Tests">
-        <classes>
-            <class name="com.automation.tests.api.APITests"/>
         </classes>
     </test>
     
